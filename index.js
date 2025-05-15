@@ -2,12 +2,12 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const OpenAI = require('openai');
 
-// Create Discord client
+// Initialize Discord bot with correct intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.MessageContent, // Requires enabling in Discord Dev Portal
   ],
 });
 
@@ -16,11 +16,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// FAQ responses
+// FAQ responses with real channel ID
 const faqs = {
-  download: "You can download Prismstrap from the <#YOUR_CHANNEL_ID> channel. Check pinned messages!",
-  usage: "To use Prismstrap, follow the full guide in <#YOUR_CHANNEL_ID>. Need help? Just ask!",
-  execs: "Executors are explained in detail in <#YOUR_CHANNEL_ID>. It's all pinned there!",
+  download: "📥 You can download Prismstrap from the <#1369349351637389352> channel. Check pinned messages!",
+  usage: "🛠️ To use Prismstrap, follow the guide in <#1369349351637389352>. Everything you need is there!",
+  execs: "⚙️ Executions and usage are explained in <#1369349351637389352>. Ask if you need help!",
 };
 
 client.on('messageCreate', async (message) => {
@@ -28,31 +28,31 @@ client.on('messageCreate', async (message) => {
 
   const content = message.content.toLowerCase();
 
-  // FAQ match
+  // Check for keyword match (FAQ)
   for (const keyword in faqs) {
     if (content.includes(keyword)) {
       return message.reply(faqs[keyword]);
     }
   }
 
-  // Otherwise use OpenAI to reply
+  // If not a keyword, reply with OpenAI
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: message.content }],
     });
 
-    const botReply = response.choices[0].message.content;
-    message.reply(botReply);
+    const reply = response.choices[0].message.content;
+    message.reply(reply);
   } catch (err) {
-    console.error("OpenAI error:", err);
-    message.reply("Something went wrong while trying to reply...");
+    console.error("OpenAI Error:", err);
+    message.reply("⚠️ I had trouble generating a reply. Please try again later.");
   }
 });
 
-// On bot ready
+// Bot ready event
 client.once('ready', () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
+  console.log(`✅ PrismAI is online as ${client.user.tag}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
