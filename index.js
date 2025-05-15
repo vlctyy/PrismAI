@@ -1,46 +1,58 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages] });
+// Create Discord client
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
 
-const openai = new OpenAIApi(new Configuration({
+// Initialize OpenAI
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-}));
+});
 
+// FAQ responses
 const faqs = {
-  download: "You can download Prismstrap from the <#YOUR_PRISMSTRAP_CHANNEL_ID> channel. Check pinned messages!",
-  usage: "To use Prismstrap, follow the guide in <#YOUR_PRISMSTRAP_CHANNEL_ID>. We have tutorials and more.",
-  execs: "Executors are explained in detail in <#YOUR_PRISMSTRAP_CHANNEL_ID>. Ask if you need help!",
+  download: "You can download Prismstrap from the <#YOUR_CHANNEL_ID> channel. Check pinned messages!",
+  usage: "To use Prismstrap, follow the full guide in <#YOUR_CHANNEL_ID>. Need help? Just ask!",
+  execs: "Executors are explained in detail in <#YOUR_CHANNEL_ID>. It's all pinned there!",
 };
 
-client.on('messageCreate', async message => {
+client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   const content = message.content.toLowerCase();
 
-  for (const key in faqs) {
-    if (content.includes(key)) {
-      return message.reply(faqs[key]);
+  // FAQ match
+  for (const keyword in faqs) {
+    if (content.includes(keyword)) {
+      return message.reply(faqs[keyword]);
     }
   }
 
+  // Otherwise use OpenAI to reply
   try {
-    const response = await openai.createChatCompletion({
-      model: "gpt-4o-mini",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
       messages: [{ role: "user", content: message.content }],
     });
 
-    const botReply = response.data.choices[0].message.content;
+    const botReply = response.choices[0].message.content;
     message.reply(botReply);
-  } catch (error) {
-    console.error(error);
-    message.reply("Oops, something went wrong while I was thinking...");
+  } catch (err) {
+    console.error("OpenAI error:", err);
+    message.reply("Something went wrong while trying to reply...");
   }
 });
 
+// On bot ready
 client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  console.log(`🤖 Logged in as ${client.user.tag}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
