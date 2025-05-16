@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "PrismStrap AI Discord Bot",
   "main": "index.js",
-  "type": "module",   Miroslav"// <-- THIS LINE IS CRUCIAL"
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js"
