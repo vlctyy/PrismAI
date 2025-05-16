@@ -1,13 +1,25 @@
 {
   "name": "prismstrap-bot",
   "version": "1.0.0",
+  "description": "PrismStrap AI Discord Bot",
   "main": "index.js",
+  "type": "module",   Miroslav"// <-- THIS LINE IS CRUCIAL"
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node --watch index.js"
   },
+  "keywords": [
+    "discord",
+    "ai",
+    "chatbot",
+    "openai",
+    "prismstrap"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.11.0",
-    "dotenv": "^16.0.3",
-    "openai": "^4.10.0"
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "openai": "^4.24.1"
   }
 }
