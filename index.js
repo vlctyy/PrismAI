@@ -14,18 +14,25 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// IDs of your special channels
 const BOT_CHANNEL_ID = '1369349351637389352';
+const EXEC_CHANNEL_ID = '1369681918278242465';
+const SUPPORT_CHANNEL_ID = '1346152690975244348';
 
+// Predefined FAQ responses (exact keyword matching, lowercase)
 const FAQ = {
-  "download": "You can download PrismStrap in <#1369349351637389352>.",
-  "how do i use": "Check the getting started guide in <#1369349351637389352>.",
-  "executor": "PrismStrap supports many popular executors. For details, visit <#1369681918278242465>.",
-  "executors": "Check supported executors here: <#1369681918278242465>.",
-  "injector": "Our recommended injectors are listed in <#1369349351637389352>.",
-  "updates": "Stay up to date on PrismStrap in <#1369681918278242465>.",
-  "support": "Need help? Ask your questions in <#1346152690975244348>.",
-  "help": "If you need assistance, check out <#1346152690975244348> or ask me directly!",
+  "download": `You can download PrismStrap here: <#${BOT_CHANNEL_ID}>.`,
+  "how do i use": `Check out the usage guide in <#${BOT_CHANNEL_ID}>.`,
+  "executor": `Supported executors and how to use them are listed in <#${EXEC_CHANNEL_ID}>.`,
+  "executors": `Supported executors and updates: <#${EXEC_CHANNEL_ID}>.`,
+  "injector": `Recommended injectors info: <#${BOT_CHANNEL_ID}>.`,
+  "updates": `Latest updates are posted in <#${EXEC_CHANNEL_ID}>.`,
+  "support": `Need help? Head over to <#${SUPPORT_CHANNEL_ID}> for assistance.`,
+  "help": `For support and info, visit <#${SUPPORT_CHANNEL_ID}> or ask me here!`,
 };
+
+// Common greetings to catch
+const GREETINGS = ["hi", "hello", "hey", "hiya", "sup"];
 
 // Register slash commands on ready
 client.once(Events.ClientReady, async () => {
@@ -52,7 +59,7 @@ client.once(Events.ClientReady, async () => {
   }
 });
 
-// Handle slash commands
+// Slash command handler
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -61,9 +68,9 @@ client.on(Events.InteractionCreate, async interaction => {
       content:
 `**PrismStrap Support and Resources**
 
-• 📥 Download: <#1369349351637389352>
-• 🔧 Supported Executors & Updates: <#1369681918278242465>
-• 🆘 Support Channel: <#1346152690975244348>
+• 📥 Download & Usage: <#${BOT_CHANNEL_ID}>
+• 🔧 Supported Executors & Updates: <#${EXEC_CHANNEL_ID}>
+• 🆘 Support Channel: <#${SUPPORT_CHANNEL_ID}>
 
 Feel free to ask me any questions here!`,
       ephemeral: true
@@ -71,51 +78,65 @@ Feel free to ask me any questions here!`,
   }
 });
 
-// Handle normal messages and replies
+// Message handler for bot channel only
 client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot || message.channel.id !== BOT_CHANNEL_ID) return;
+  if (message.author.bot) return;
+  if (message.channel.id !== BOT_CHANNEL_ID) return;
 
   let userInput = message.content.toLowerCase();
 
-  // Handle replies to the bot's messages
+  // Handle replies to bot messages - add context if replying
   if (message.reference) {
     try {
       const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
       if (repliedMessage.author.id === client.user.id) {
+        // Include previous bot message context before user input
         userInput = repliedMessage.content.toLowerCase() + "\n\n" + userInput;
       }
     } catch (err) {
-      console.warn("Could not fetch reply context:", err);
+      console.warn("Could not fetch replied message:", err);
     }
   }
 
-  // Check FAQ keywords first
+  // Check greetings
+  for (const greet of GREETINGS) {
+    if (userInput.includes(greet)) {
+      return message.reply("Hello! 👋 How can I assist you with PrismStrap today?");
+    }
+  }
+
+  // Check FAQ keywords
   for (const keyword in FAQ) {
     if (userInput.includes(keyword)) {
       return message.reply(FAQ[keyword]);
     }
   }
 
-  // If no FAQ matched, call OpenAI chat
+  // Otherwise, use OpenAI Chat API for any other question (math, casual, etc)
   try {
-    const chatCompletion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
       messages: [
         {
-          role: 'system',
-          content: "You are PrismStrap AI, a helpful and friendly bot assistant for the PrismStrap Roblox utility client."
+          role: "system",
+          content: "You are PrismStrap AI, a helpful and friendly Discord bot assistant for the PrismStrap Roblox utility client."
         },
-        { role: 'user', content: userInput }
+        {
+          role: "user",
+          content: userInput
+        }
       ],
     });
 
-    const response = chatCompletion.choices[0].message.content;
+    const response = completion.choices[0].message.content;
     if (response) {
       await message.reply(response);
+    } else {
+      await message.reply("Sorry, I couldn't think of a response. Please try again.");
     }
-  } catch (err) {
-    console.error("OpenAI error:", err);
-    await message.reply("⚠️ I ran into a problem trying to respond. Please try again later.");
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    await message.reply("⚠️ Sorry, I encountered an error while trying to respond. Please try again later.");
   }
 });
 
