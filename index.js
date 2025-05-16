@@ -1,58 +1,51 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const OpenAI = require('openai');
+const { OpenAI } = require('openai');
 
-// Initialize Discord bot with correct intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, // Requires enabling in Discord Dev Portal
-  ],
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// FAQ responses with real channel ID
-const faqs = {
-  download: "📥 You can download Prismstrap from the <#1369349351637389352> channel. Check pinned messages!",
-  usage: "🛠️ To use Prismstrap, follow the guide in <#1369349351637389352>. Everything you need is there!",
-  execs: "⚙️ Executions and usage are explained in <#1369349351637389352>. Ask if you need help!",
+const FAQ = {
+  "download": "You can download PrismStrap in <#1369349351637389352>!",
+  "how do i download": "To download PrismStrap, go to <#1369349351637389352>.",
+  "how to use": "Check the usage guide in <#1369349351637389352>!",
+  "exec": "Executors are explained in <#1369349351637389352>."
 };
+
+client.on('ready', () => {
+  console.log(`✅ PrismAI is online as ${client.user.tag}`);
+});
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  const content = message.content.toLowerCase();
+  const lowerContent = message.content.toLowerCase();
 
-  // Check for keyword match (FAQ)
-  for (const keyword in faqs) {
-    if (content.includes(keyword)) {
-      return message.reply(faqs[keyword]);
+  for (const keyword in FAQ) {
+    if (lowerContent.includes(keyword)) {
+      return message.reply(FAQ[keyword]);
     }
   }
 
-  // If not a keyword, reply with OpenAI
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: message.content }],
+      messages: [{ role: 'user', content: message.content }],
+      model: 'gpt-3.5-turbo',
     });
 
     const reply = response.choices[0].message.content;
-    message.reply(reply);
+    if (reply) message.reply(reply);
   } catch (err) {
-    console.error("OpenAI Error:", err);
-    message.reply("⚠️ I had trouble generating a reply. Please try again later.");
+    console.error("❌ OpenAI Error:", err);
+    message.reply("There was an error getting a response. Try again later.");
   }
-});
-
-// Bot ready event
-client.once('ready', () => {
-  console.log(`✅ PrismAI is online as ${client.user.tag}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
