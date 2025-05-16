@@ -34,20 +34,18 @@ if (!DISCORD_TOKEN || !OPENAI_API_KEY) {
 }
 
 // --- Health Check Server for Railway (or other PaaS) ---
-// Start this ASAP to be ready for PaaS health checks
 const rawPort = process.env.PORT;
 let PORT = parseInt(rawPort, 10);
 if (isNaN(PORT) || PORT <= 0) {
-    if (rawPort) { // If PORT was set but invalid
+    if (rawPort) {
         console.warn(`⚠️ Warning: Environment variable PORT ("${rawPort}") is not a valid positive number. Defaulting to 3000.`);
     }
-    PORT = 3000; // Default port
+    PORT = 3000;
 }
 
 const HEALTH_CHECK_MESSAGE = `${BOT_USER_AGENT_NAME} HTTP health check endpoint. Bot is alive if this responds 200 OK.\nDiscord functionality is separate.\n`;
 
 console.log(`🔵 Attempting to start HTTP health check server on 0.0.0.0:${PORT}...`);
-
 const healthCheckServer = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -61,12 +59,9 @@ const healthCheckServer = http.createServer((req, res) => {
 healthCheckServer.on('error', (err) => {
     console.error(`🔴 HTTP health check server encountered an error:`, err);
     if (err.code === 'EADDRINUSE') {
-        console.error(`🔴 FATAL: Port ${PORT} is already in use. The bot cannot start the health check server.
-        This might be an issue with the Railway environment or a lingering process from a previous deployment.
-        Consider stopping and restarting the service on Railway.`);
-        process.exit(1); // Exit if port is in use, as health checks will definitively fail.
+        console.error(`🔴 FATAL: Port ${PORT} is already in use. Health check server cannot start.`);
+        process.exit(1);
     }
-    // For other errors, we log them but might allow the bot to continue if they are not fatal for the HTTP server itself.
 });
 
 try {
@@ -75,7 +70,7 @@ try {
     });
 } catch (listenError) {
     console.error(`🔴 FATAL: Failed to initiate listening for HTTP health check server on port ${PORT}:`, listenError);
-    process.exit(1); // If listen() itself throws synchronously, health checks can't pass.
+    process.exit(1);
 }
 // --- End Health Check Server ---
 
@@ -96,7 +91,6 @@ const openai = new OpenAI({
 });
 
 client.on('ready', () => {
-    // This log should appear AFTER the "HTTP health check server successfully listening" log if all is well.
     console.log(`✅ Discord bot "${BOT_USER_AGENT_NAME}" is online and ready! Logged in as ${client.user.tag}`);
     client.user.setPresence({
         activities: [{ name: `chat | @${BOT_USER_AGENT_NAME} help` }],
@@ -121,12 +115,11 @@ client.on('messageCreate', async (message) => {
              channelId === DOWNLOAD_INFO_CHANNEL_ID);
 
         if (!isDM && requireMentionForGreeting && !mentioned) {
-            // Do nothing for unmentioned greetings in these restricted channels
+            // Do nothing
         } else {
             const replies = ["Hello there!", "Hi!", "Hey, how can I help you today?", "Greetings!"];
-            try {
-                await message.reply(replies[Math.floor(Math.random() * replies.length)]);
-            } catch (replyError) { console.error("Error sending greeting reply:", replyError); }
+            try { await message.reply(replies[Math.floor(Math.random() * replies.length)]); }
+            catch (replyError) { console.error("Error sending greeting reply:", replyError); }
             return;
         }
     }
@@ -140,9 +133,8 @@ client.on('messageCreate', async (message) => {
     }
 
     if (processedContent.length === 0) {
-        try {
-            await message.reply("Yes? How can I help you?");
-        } catch (replyError) { console.error("Error replying to empty mention:", replyError); }
+        try { await message.reply("Yes? How can I help you?"); }
+        catch (replyError) { console.error("Error replying to empty mention:", replyError); }
         return;
     }
 
@@ -150,9 +142,8 @@ client.on('messageCreate', async (message) => {
 
     for (const keyword in PRISMSTRAP_QA) {
         if (lowerProcessedContent.includes(keyword)) {
-            try {
-                await message.reply(PRISMSTRAP_QA[keyword]);
-            } catch (replyError) { console.error("Error sending PRISMSTRAP_QA reply:", replyError); }
+            try { await message.reply(PRISMSTRAP_QA[keyword]); }
+            catch (replyError) { console.error("Error sending PRISMSTRAP_QA reply:", replyError); }
             return;
         }
     }
@@ -177,13 +168,11 @@ client.on('messageCreate', async (message) => {
         console.error("OpenAI API or reply processing error:", error.message);
         if (error.response) console.error("OpenAI API Response:", error.response.status, error.response.data);
         else if (error.code) console.error("Network/Operational Error Code:", error.code);
-        try {
-            await message.reply("Sorry, issue processing that. AI might be busy. Try again soon.");
-        } catch (fallbackReplyError) { console.error("Error sending fallback error reply:", fallbackReplyError); }
+        try { await message.reply("Sorry, issue processing that. AI might be busy. Try again soon."); }
+        catch (fallbackReplyError) { console.error("Error sending fallback error reply:", fallbackReplyError); }
     }
 });
 
-// Login to Discord
 console.log("🔵 Attempting to login to Discord...");
 client.login(DISCORD_TOKEN)
     .then(() => {
@@ -191,38 +180,26 @@ client.login(DISCORD_TOKEN)
     })
     .catch(err => {
         console.error(`🔴 FATAL: Failed to login to Discord: ${err.message}. Token or intents might be incorrect.`);
-        // The health check server might still be running, but the bot is non-functional.
-        // Railway will likely SIGTERM this eventually due to application failure.
-        // Consider process.exit(1) if the bot cannot function without Discord.
-        process.exit(1); // Exit if Discord login fails.
+        process.exit(1);
     });
 
-// Graceful shutdown
 function gracefulShutdown(signal) {
     console.log(`🟡 Received ${signal}. Shutting down ${BOT_USER_AGENT_NAME} gracefully...`);
     if (healthCheckServer) {
-        healthCheckServer.close(() => {
-            console.log("✅ HTTP health check server closed.");
-        });
+        healthCheckServer.close(() => { console.log("✅ HTTP health check server closed."); });
     }
-    if (client) client.destroy(); // This logs out the bot
+    if (client) client.destroy();
     console.log(`👋 ${BOT_USER_AGENT_NAME} has been shut down.`);
     process.exit(0);
 }
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-
 process.on('unhandledRejection', (reason, promise) => {
     console.error('🔴 Unhandled Rejection at:', promise, 'reason:', reason);
-    // Depending on the severity, you might want to gracefully shut down
-    // For now, just log it.
 });
-
 process.on('uncaughtException', (err, origin) => {
     console.error(`🔴 Uncaught Exception: ${err.message}`, 'Origin:', origin, 'Stack:', err.stack);
-    // This is a critical error, the application is in an undefined state.
-    // Attempt a graceful shutdown, but it might not complete.
     gracefulShutdown('uncaughtException');
 });
 
