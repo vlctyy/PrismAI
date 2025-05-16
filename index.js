@@ -1,20 +1,18 @@
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import http from 'http'; // Added for health check
+import http from 'http'; // For health check
 
 dotenv.config(); // Load environment variables from .env file
 
 const { DISCORD_TOKEN, OPENAI_API_KEY } = process.env;
+const BOT_USER_AGENT_NAME = "PrismStrap AI"; // Consistent name for logs and presence
 
 // --- Channel IDs ---
-// Replace these with your actual channel IDs if they are different
-// or load them from environment variables for more flexibility.
 const SUPPORTED_EXECS_CHANNEL_ID = "1369681918278242465";
-const PRISMSTRAP_UPDATES_CHANNEL_ID = "1369681918278242465"; // Same as Supported Execs
+const PRISMSTRAP_UPDATES_CHANNEL_ID = "1369681918278242465";
 const SUPPORT_CHANNEL_ID = "1346152690975244348";
 const DOWNLOAD_INFO_CHANNEL_ID = "1369349351637389352";
-// const ANOTHER_SERVER_CHANNEL_ID = "1372592488241565768"; // Not specifically handled yet, but you can add logic
 
 // --- Configuration for PrismStrap Specific Replies ---
 const PRISMSTRAP_QA = {
@@ -27,19 +25,31 @@ For PrismStrap support, please use the <#${SUPPORT_CHANNEL_ID}> channel.
 For downloads and general info, check out <#${DOWNLOAD_INFO_CHANNEL_ID}>.
 You can also ask me specific questions like "where to download PrismStrap" or "what is PrismStrap".`
 };
-// --- End Configuration ---
 
+// --- Critical Environment Variable Check ---
 if (!DISCORD_TOKEN || !OPENAI_API_KEY) {
-    console.error("Missing critical environment variables: DISCORD_TOKEN or OPENAI_API_KEY");
-    process.exit(1);
+    console.error(`🔴 CRITICAL: Missing environment variables! DISCORD_TOKEN or OPENAI_API_KEY is not set.
+    Please check your .env file (local) or Railway project variables. Bot cannot start.`);
+    process.exit(1); // Exit immediately if critical tokens are missing
 }
 
 // --- Health Check Server for Railway (or other PaaS) ---
-const PORT = process.env.PORT || 3000; // Railway provides PORT, 3000 is a fallback for local
-const HEALTH_CHECK_MESSAGE = `PrismStrap AI Bot is alive! Discord bot functionality is separate.\n`;
+// Start this ASAP to be ready for PaaS health checks
+const rawPort = process.env.PORT;
+let PORT = parseInt(rawPort, 10);
+if (isNaN(PORT) || PORT <= 0) {
+    if (rawPort) { // If PORT was set but invalid
+        console.warn(`⚠️ Warning: Environment variable PORT ("${rawPort}") is not a valid positive number. Defaulting to 3000.`);
+    }
+    PORT = 3000; // Default port
+}
+
+const HEALTH_CHECK_MESSAGE = `${BOT_USER_AGENT_NAME} HTTP health check endpoint. Bot is alive if this responds 200 OK.\nDiscord functionality is separate.\n`;
+
+console.log(`🔵 Attempting to start HTTP health check server on 0.0.0.0:${PORT}...`);
 
 const healthCheckServer = http.createServer((req, res) => {
-    if (req.url === '/health' || req.url === '/') { // Respond to common health check paths
+    if (req.url === '/health' || req.url === '/') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end(HEALTH_CHECK_MESSAGE);
     } else {
@@ -48,9 +58,25 @@ const healthCheckServer = http.createServer((req, res) => {
     }
 });
 
-healthCheckServer.listen(PORT, '0.0.0.0', () => { // Listen on 0.0.0.0 for container environments
-    console.log(`✅ HTTP health check server running on port ${PORT}`);
+healthCheckServer.on('error', (err) => {
+    console.error(`🔴 HTTP health check server encountered an error:`, err);
+    if (err.code === 'EADDRINUSE') {
+        console.error(`🔴 FATAL: Port ${PORT} is already in use. The bot cannot start the health check server.
+        This might be an issue with the Railway environment or a lingering process from a previous deployment.
+        Consider stopping and restarting the service on Railway.`);
+        process.exit(1); // Exit if port is in use, as health checks will definitively fail.
+    }
+    // For other errors, we log them but might allow the bot to continue if they are not fatal for the HTTP server itself.
 });
+
+try {
+    healthCheckServer.listen(PORT, '0.0.0.0', () => {
+        console.log(`✅ HTTP health check server successfully listening on 0.0.0.0:${PORT}`);
+    });
+} catch (listenError) {
+    console.error(`🔴 FATAL: Failed to initiate listening for HTTP health check server on port ${PORT}:`, listenError);
+    process.exit(1); // If listen() itself throws synchronously, health checks can't pass.
+}
 // --- End Health Check Server ---
 
 // Initialize Discord Client
@@ -69,18 +95,16 @@ const openai = new OpenAI({
     apiKey: OPENAI_API_KEY,
 });
 
-const BOT_USER_AGENT_NAME = "PrismStrap AI"; // Used in logs and presence
-
 client.on('ready', () => {
-    console.log(`✅ ${BOT_USER_AGENT_NAME} is online and ready! Logged in as ${client.user.tag}`);
+    // This log should appear AFTER the "HTTP health check server successfully listening" log if all is well.
+    console.log(`✅ Discord bot "${BOT_USER_AGENT_NAME}" is online and ready! Logged in as ${client.user.tag}`);
     client.user.setPresence({
-        activities: [{ name: `chat | @${BOT_USER_AGENT_NAME} help` }], // Use the defined name
+        activities: [{ name: `chat | @${BOT_USER_AGENT_NAME} help` }],
         status: 'online',
     });
 });
 
 client.on('messageCreate', async (message) => {
-    // Ignore messages from other bots
     if (message.author.bot) return;
 
     const channelId = message.channel.id;
@@ -88,146 +112,118 @@ client.on('messageCreate', async (message) => {
     const mentioned = message.mentions.has(client.user);
     const isDM = !message.guild;
 
-    // 1. Handle casual greetings
     const greetings = ["hi", "hello", "hey", "yo", "sup", "heya", "howdy"];
     const isGreeting = greetings.some(greeting => lowerContent === greeting || lowerContent.startsWith(greeting + " "));
 
     if (isGreeting) {
-        // In these specific channels, only respond to greetings if mentioned.
-        // In DMs or other channels, respond to unmentioned greetings.
         const requireMentionForGreeting =
-            (channelId === PRISMSTRAP_UPDATES_CHANNEL_ID || // Also covers Supported Execs
+            (channelId === PRISMSTRAP_UPDATES_CHANNEL_ID ||
              channelId === DOWNLOAD_INFO_CHANNEL_ID);
 
-        if (requireMentionForGreeting && !mentioned && !isDM) {
+        if (!isDM && requireMentionForGreeting && !mentioned) {
             // Do nothing for unmentioned greetings in these restricted channels
         } else {
             const replies = ["Hello there!", "Hi!", "Hey, how can I help you today?", "Greetings!"];
-            await message.reply(replies[Math.floor(Math.random() * replies.length)]);
-            return; // Greeting handled
+            try {
+                await message.reply(replies[Math.floor(Math.random() * replies.length)]);
+            } catch (replyError) { console.error("Error sending greeting reply:", replyError); }
+            return;
         }
     }
 
-    // 2. For further processing, bot must be mentioned or it's a DM.
-    // Exception: If it was a greeting that required mention but wasn't handled above (e.g. just "hi @bot")
-    // that case is already handled. This ensures non-greeting messages need mention.
-    if (!mentioned && !isDM) {
-        return;
-    }
+    if (!mentioned && !isDM) return;
 
-    // Clean the message content: remove the bot's mention
     let processedContent = message.content;
     if (mentioned && client.user) {
         const mentionRegex = new RegExp(`<@!?${client.user.id}>`, 'g');
         processedContent = processedContent.replace(mentionRegex, '').trim();
     }
 
-    // If only mention was sent (empty processedContent after cleaning)
     if (processedContent.length === 0) {
-        await message.reply("Yes? How can I help you?");
+        try {
+            await message.reply("Yes? How can I help you?");
+        } catch (replyError) { console.error("Error replying to empty mention:", replyError); }
         return;
     }
 
     const lowerProcessedContent = processedContent.toLowerCase();
 
-    // 3. Handle specific PrismStrap questions/commands (PRISMSTRAP_QA)
     for (const keyword in PRISMSTRAP_QA) {
         if (lowerProcessedContent.includes(keyword)) {
             try {
                 await message.reply(PRISMSTRAP_QA[keyword]);
-            } catch (replyError) {
-                console.error("Error sending PRISMSTRAP_QA reply:", replyError);
-            }
-            return; // Handled by QA
+            } catch (replyError) { console.error("Error sending PRISMSTRAP_QA reply:", replyError); }
+            return;
         }
     }
 
-    // 4. If no QA match, and bot was addressed, use OpenAI
     try {
         await message.channel.sendTyping();
+        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly AI for PrismStrap. Be conversational, concise, informative.`;
+        if (channelId === SUPPORT_CHANNEL_ID) systemPromptContent += " You're in the support channel. Assist with PrismStrap issues patiently.";
+        else if (channelId === DOWNLOAD_INFO_CHANNEL_ID) systemPromptContent += ` You're in the download/info channel. Focus on facts, links. For detailed support, guide to <#${SUPPORT_CHANNEL_ID}>.`;
+        else if (channelId === PRISMSTRAP_UPDATES_CHANNEL_ID) systemPromptContent += ` You're in an updates channel. Be concise on news, compatibility. Guide to <#${SUPPORT_CHANNEL_ID}> for support.`;
 
-        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly and helpful AI assistant for the PrismStrap project. Engage in natural conversation. Be concise but informative.`;
-
-        // Tailor system prompt based on channel
-        if (channelId === SUPPORT_CHANNEL_ID) {
-            systemPromptContent += " You are currently in the PrismStrap support channel. Your primary goal is to assist users with their PrismStrap-related questions and issues. Be patient, empathetic, and thorough in your explanations.";
-        } else if (channelId === DOWNLOAD_INFO_CHANNEL_ID) {
-            systemPromptContent += ` You are in the PrismStrap download and information channel. Focus on providing direct information about PrismStrap features, download links, and official resources. If a user asks for general help or troubleshooting beyond basic info, politely suggest they ask in the dedicated support channel <#${SUPPORT_CHANNEL_ID}> for more detailed assistance after providing a brief answer.`;
-        } else if (channelId === PRISMSTRAP_UPDATES_CHANNEL_ID) { // Also covers Supported Execs channel
-            systemPromptContent += ` You are in a channel for PrismStrap updates and discussion about supported executables/features. Keep responses concise and focused on PrismStrap news, changes, or compatibility. For general support or troubleshooting, guide users to the appropriate support channel <#${SUPPORT_CHANNEL_ID}>.`;
-        }
-        // For DMs or other non-specified channels, the default system prompt will be used.
-
-        const messagesForOpenAI = [
-            { role: "system", content: systemPromptContent },
-            { role: "user", content: processedContent }
-        ];
-
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo", // Or your preferred model e.g., "gpt-4"
-            messages: messagesForOpenAI,
-            max_tokens: 300,
-            temperature: 0.7,
-        });
-
+        const messagesForOpenAI = [{ role: "system", content: systemPromptContent }, { role: "user", content: processedContent }];
+        const completion = await openai.chat.completions.create({ model: "gpt-3.5-turbo", messages: messagesForOpenAI, max_tokens: 300, temperature: 0.7 });
         const reply = completion.choices[0]?.message?.content?.trim();
 
         if (reply) {
-            // Discord has a 2000 character limit per message.
-            // This is a simple split; more advanced splitting might be needed for complex formatting.
             if (reply.length > 2000) {
-                const parts = [];
-                for (let i = 0; i < reply.length; i += 1990) { // Split with some buffer
-                    parts.push(reply.substring(i, Math.min(i + 1990, reply.length)));
-                }
-                for (const part of parts) {
-                    await message.reply(part);
-                }
-            } else {
-                await message.reply(reply);
-            }
-        } else {
-            await message.reply("I tried to generate a response, but it came back empty. Could you try rephrasing?");
-        }
-
+                for (let i = 0; i < reply.length; i += 1990) await message.reply(reply.substring(i, Math.min(i + 1990, reply.length)));
+            } else await message.reply(reply);
+        } else await message.reply("AI response was empty. Try rephrasing?");
     } catch (error) {
-        console.error("Error calling OpenAI API or processing its response:", error.message);
-        if (error.response) { // For errors from the OpenAI SDK (v4+)
-            console.error("OpenAI API Response Status:", error.response.status);
-            console.error("OpenAI API Response Data:", error.response.data);
-        } else if (error.code) { // For network or other operational errors
-             console.error("Error Code:", error.code);
-        }
-        await message.reply("Sorry, I encountered an issue while trying to process that. The AI might be temporarily unavailable or there was a network problem. Please try again in a moment.");
+        console.error("OpenAI API or reply processing error:", error.message);
+        if (error.response) console.error("OpenAI API Response:", error.response.status, error.response.data);
+        else if (error.code) console.error("Network/Operational Error Code:", error.code);
+        try {
+            await message.reply("Sorry, issue processing that. AI might be busy. Try again soon.");
+        } catch (fallbackReplyError) { console.error("Error sending fallback error reply:", fallbackReplyError); }
     }
 });
 
 // Login to Discord
+console.log("🔵 Attempting to login to Discord...");
 client.login(DISCORD_TOKEN)
+    .then(() => {
+        console.log("✅ Successfully initiated Discord login sequence. Waiting for 'ready' event.");
+    })
     .catch(err => {
-        console.error("Failed to login to Discord:", err.message);
-        // No need to explicitly call process.exit(1) here if Railway terminates on failed start.
-        // However, for local debugging, it's useful.
-        // For Railway, the main concern is the health check. If login fails, health check might not start or the process exits.
+        console.error(`🔴 FATAL: Failed to login to Discord: ${err.message}. Token or intents might be incorrect.`);
+        // The health check server might still be running, but the bot is non-functional.
+        // Railway will likely SIGTERM this eventually due to application failure.
+        // Consider process.exit(1) if the bot cannot function without Discord.
+        process.exit(1); // Exit if Discord login fails.
     });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    console.log(`Shutting down ${BOT_USER_AGENT_NAME} due to SIGINT...`);
-    if (healthCheckServer) healthCheckServer.close();
-    if (client) client.destroy();
+function gracefulShutdown(signal) {
+    console.log(`🟡 Received ${signal}. Shutting down ${BOT_USER_AGENT_NAME} gracefully...`);
+    if (healthCheckServer) {
+        healthCheckServer.close(() => {
+            console.log("✅ HTTP health check server closed.");
+        });
+    }
+    if (client) client.destroy(); // This logs out the bot
+    console.log(`👋 ${BOT_USER_AGENT_NAME} has been shut down.`);
     process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔴 Unhandled Rejection at:', promise, 'reason:', reason);
+    // Depending on the severity, you might want to gracefully shut down
+    // For now, just log it.
 });
 
-process.on('SIGTERM', () => {
-    console.log(`Shutting down ${BOT_USER_AGENT_NAME} due to SIGTERM...`);
-    if (healthCheckServer) healthCheckServer.close();
-    if (client) client.destroy();
-    process.exit(0); // Important for Railway to know the process exited cleanly on SIGTERM
+process.on('uncaughtException', (err, origin) => {
+    console.error(`🔴 Uncaught Exception: ${err.message}`, 'Origin:', origin, 'Stack:', err.stack);
+    // This is a critical error, the application is in an undefined state.
+    // Attempt a graceful shutdown, but it might not complete.
+    gracefulShutdown('uncaughtException');
 });
 
-// Optional: Handle unhandled promise rejections for better debugging
-process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
-    // Depending on the error, you might want to gracefully shut down or just log
-});
+console.log("🔵 Script execution reached end of main file. Event listeners are active.");
