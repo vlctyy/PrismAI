@@ -6,7 +6,7 @@ import http from 'http';
 dotenv.config();
 
 const { DISCORD_TOKEN, OPENAI_API_KEY } = process.env;
-const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "[Your Name/PrismStrap Team Name]"; // Configure this!
+const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "[wavezq on yt <3]"; // ok
 
 // --- Channel IDs ---
 const SUPPORTED_EXECS_CHANNEL_ID = "1369681918278242465";
