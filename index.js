@@ -202,5 +202,13 @@ process.on('uncaughtException', (err, origin) => {
     console.error(`🔴 Uncaught Exception: ${err.message}`, 'Origin:', origin, 'Stack:', err.stack);
     gracefulShutdown('uncaughtException');
 });
+// Simple uptime server
+const express = require("express");
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get("/", (req, res) => res.send("PrismStrap AI is alive!"));
+
+app.listen(port, () => console.log(`✅ Uptime server is live on port ${port}`));
 
 console.log("🔵 Script execution reached end of main file. Event listeners are active.");
