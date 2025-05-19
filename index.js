@@ -6,7 +6,7 @@ import http from 'http';
 dotenv.config();
 
 const { DISCORD_TOKEN, OPENAI_API_KEY } = process.env;
-const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "[wavezq on yt <3]"; // ok
+const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "[Your Name/PrismStrap Team Name]"; // Configure this!
 
 // --- Channel IDs ---
 const SUPPORTED_EXECS_CHANNEL_ID = "1369681918278242465";
@@ -22,12 +22,13 @@ const GENERAL_QA = {
 Try asking:
 - "What is PrismStrap?"
 - "Where can I download PrismStrap?"
+- "How to get FFlags with PrismStrap?"
 - "Tell me a joke"
 - "Flip a coin"
 - "What time is it?"
 - For specific PrismStrap help, please use the <#${SUPPORT_CHANNEL_ID}> channel.
 - For PrismStrap downloads and general info, check out <#${DOWNLOAD_INFO_CHANNEL_ID}>.`,
-    "what are your commands": `I respond to natural language! You can ask me about PrismStrap (e.g., 'download PrismStrap', 'what is PrismStrap'), or chat with me. I also know how to 'tell me a joke', 'flip a coin', or tell you 'what time is it'. My main help info is available if you ask "what can you do".`,
+    "what are your commands": `I respond to natural language! You can ask me about PrismStrap (e.g., 'download PrismStrap', 'what is PrismStrap', 'how to use fflags'), or chat with me. I also know how to 'tell me a joke', 'flip a coin', or tell you 'what time is it'. My main help info is available if you ask "what can you do".`,
     "who created you": `I am ${BOT_USER_AGENT_NAME}, an AI assistant for the PrismStrap project. I was developed by ${BOT_CREATOR_NAME} with the help of OpenAI's technology.`,
     "who made you": `I am ${BOT_USER_AGENT_NAME}, an AI assistant for the PrismStrap project. I was developed by ${BOT_CREATOR_NAME} with the help of OpenAI's technology.`,
 };
@@ -36,10 +37,31 @@ Try asking:
 const PRISMSTRAP_QA = {
     "download": process.env.PRISMSTRAP_DOWNLOAD_LINK || `You can find download links in the <#${DOWNLOAD_INFO_CHANNEL_ID}> channel or ask me for specific versions. (Link not fully configured)`,
     "usage": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
+    "how to use prismstrap": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
+    "how to get fflags": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, including how to manage FFlags, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
+    "how can i get fflags": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, including how to manage FFlags, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
     "what is prismstrap": process.env.PRISMSTRAP_ABOUT || "PrismStrap is an awesome project! (About info not configured)",
     "about prismstrap": process.env.PRISMSTRAP_ABOUT || "PrismStrap is an awesome project! (About info not configured)",
     "help": GENERAL_QA["what can you do"] // Default help now points to the more comprehensive general help
 };
+
+// Also update the help text in GENERAL_QA to reflect this new common question.
+if (GENERAL_QA["what can you do"]) {
+    GENERAL_QA["what can you do"] = `I can chat with you conversationally using AI, answer questions about PrismStrap, and perform a few simple tasks!
+Try asking:
+- "What is PrismStrap?"
+- "Where can I download PrismStrap?"
+- "How to get FFlags with PrismStrap?" or "How to use PrismStrap?"
+- "Tell me a joke"
+- "Flip a coin"
+- "What time is it?"
+- For specific PrismStrap help, please use the <#${SUPPORT_CHANNEL_ID}> channel.
+- For PrismStrap downloads and general info, check out <#${DOWNLOAD_INFO_CHANNEL_ID}>.`;
+}
+if (GENERAL_QA["what are your commands"]) {
+    GENERAL_QA["what are your commands"] = `I respond to natural language! You can ask me about PrismStrap (e.g., 'download PrismStrap', 'what is PrismStrap', 'how to use fflags'), or chat with me. I also know how to 'tell me a joke', 'flip a coin', or tell you 'what time is it'. My main help info is available if you ask "what can you do".`;
+}
+
 
 if (!DISCORD_TOKEN || !OPENAI_API_KEY) {
     console.error("Missing critical environment variables: DISCORD_TOKEN or OPENAI_API_KEY");
@@ -231,7 +253,7 @@ client.on('messageCreate', async (message) => {
         }
         await message.channel.sendTyping();
 
-        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly and helpful AI assistant for the PrismStrap project. You can engage in natural conversation. Be concise but informative. If asked about your capabilities, you can mention you can answer questions about PrismStrap, tell jokes, flip coins, and state the time, in addition to general chat.`;
+        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly and helpful AI assistant for the PrismStrap project. You can engage in natural conversation. Be concise but informative. If asked about your capabilities, you can mention you can answer questions about PrismStrap (including FFlag usage), tell jokes, flip coins, and state the time, in addition to general chat.`;
 
         if (channelId === SUPPORT_CHANNEL_ID) {
             systemPromptContent += " You are currently in the PrismStrap support channel. Your primary goal is to assist users with their PrismStrap-related questions and issues.";
