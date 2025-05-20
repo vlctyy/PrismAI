@@ -17,12 +17,12 @@ const DOWNLOAD_INFO_CHANNEL_ID = "1369349351637389352";
 const BOT_USER_AGENT_NAME = "PrismStrap AI";
 
 // --- Configuration for General Basic Questions ---
-const GENERAL_QA = {
+const GENERAL_QA = { // This needs to be defined before PRISMSTRAP_QA if PRISMSTRAP_QA references it.
     "what can you do": `I can chat with you conversationally using AI, answer questions about PrismStrap, and perform a few simple tasks!
 Try asking:
 - "What is PrismStrap?"
 - "Where can I download PrismStrap?"
-- "How to get FFlags with PrismStrap?"
+- "How to use PrismStrap?" or "How to get FFlags?"
 - "Tell me a joke"
 - "Flip a coin"
 - "What time is it?"
@@ -34,33 +34,47 @@ Try asking:
 };
 
 // --- Configuration for PrismStrap Specific Replies ---
+const PRISMSTRAP_USAGE_RESPONSE = process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, including how to manage FFlags and other features, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Detailed info not fully configured in my settings yet)`;
+
 const PRISMSTRAP_QA = {
+    // Download related
     "download": process.env.PRISMSTRAP_DOWNLOAD_LINK || `You can find download links in the <#${DOWNLOAD_INFO_CHANNEL_ID}> channel or ask me for specific versions. (Link not fully configured)`,
-    "usage": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
-    "how to use prismstrap": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
-    "how to get fflags": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, including how to manage FFlags, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
-    "how can i get fflags": process.env.PRISMSTRAP_USAGE_INFO || `For PrismStrap usage, including how to manage FFlags, please refer to our documentation or ask specific questions in <#${SUPPORT_CHANNEL_ID}>. (Info not fully configured)`,
+    "get prismstrap": process.env.PRISMSTRAP_DOWNLOAD_LINK || `You can find download links in the <#${DOWNLOAD_INFO_CHANNEL_ID}> channel or ask me for specific versions. (Link not fully configured)`,
+    "where to download": process.env.PRISMSTRAP_DOWNLOAD_LINK || `You can find download links in the <#${DOWNLOAD_INFO_CHANNEL_ID}> channel or ask me for specific versions. (Link not fully configured)`,
+
+    // Usage & FFlags related - all point to the same response
+    "usage": PRISMSTRAP_USAGE_RESPONSE,
+    "how to use": PRISMSTRAP_USAGE_RESPONSE,
+    "how to use prismstrap": PRISMSTRAP_USAGE_RESPONSE,
+    "using prismstrap": PRISMSTRAP_USAGE_RESPONSE,
+    "how does prismstrap work": PRISMSTRAP_USAGE_RESPONSE,
+    "get started with prismstrap": PRISMSTRAP_USAGE_RESPONSE,
+    "prismstrap guide": PRISMSTRAP_USAGE_RESPONSE,
+    "prismstrap tutorial": PRISMSTRAP_USAGE_RESPONSE,
+    "prismstrap instructions": PRISMSTRAP_USAGE_RESPONSE,
+
+    "fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "f flags": PRISMSTRAP_USAGE_RESPONSE,
+    "how to get fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "how can i get fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "enable fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "change fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "set fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "modify fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "using fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "fflag setup": PRISMSTRAP_USAGE_RESPONSE,
+    "fflag guide": PRISMSTRAP_USAGE_RESPONSE,
+    "what are fflags": PRISMSTRAP_USAGE_RESPONSE,
+    "explain fflags": PRISMSTRAP_USAGE_RESPONSE,
+
+    // About PrismStrap
     "what is prismstrap": process.env.PRISMSTRAP_ABOUT || "PrismStrap is an awesome project! (About info not configured)",
     "about prismstrap": process.env.PRISMSTRAP_ABOUT || "PrismStrap is an awesome project! (About info not configured)",
-    "help": GENERAL_QA["what can you do"] // Default help now points to the more comprehensive general help
-};
+    "tell me about prismstrap": process.env.PRISMSTRAP_ABOUT || "PrismStrap is an awesome project! (About info not configured)",
 
-// Also update the help text in GENERAL_QA to reflect this new common question.
-if (GENERAL_QA["what can you do"]) {
-    GENERAL_QA["what can you do"] = `I can chat with you conversationally using AI, answer questions about PrismStrap, and perform a few simple tasks!
-Try asking:
-- "What is PrismStrap?"
-- "Where can I download PrismStrap?"
-- "How to get FFlags with PrismStrap?" or "How to use PrismStrap?"
-- "Tell me a joke"
-- "Flip a coin"
-- "What time is it?"
-- For specific PrismStrap help, please use the <#${SUPPORT_CHANNEL_ID}> channel.
-- For PrismStrap downloads and general info, check out <#${DOWNLOAD_INFO_CHANNEL_ID}>.`;
-}
-if (GENERAL_QA["what are your commands"]) {
-    GENERAL_QA["what are your commands"] = `I respond to natural language! You can ask me about PrismStrap (e.g., 'download PrismStrap', 'what is PrismStrap', 'how to use fflags'), or chat with me. I also know how to 'tell me a joke', 'flip a coin', or tell you 'what time is it'. My main help info is available if you ask "what can you do".`;
-}
+    // Help
+    "help": GENERAL_QA["what can you do"]
+};
 
 
 if (!DISCORD_TOKEN || !OPENAI_API_KEY) {
@@ -142,9 +156,7 @@ function tellJoke() {
         "Why did the scarecrow win an award? Because he was outstanding in his field!",
         "Why don't programmers like nature? It has too many bugs.",
         "What do you call a fish with no eyes? Fsh!",
-        "Why was the math book sad? Because it had too many problems.",
-        "I told my wife she was drawing her eyebrows too high. She seemed surprised.",
-        "What's orange and sounds like a parrot? A carrot!"
+        "Why was the math book sad? Because it had too many problems."
     ];
     return jokes[Math.floor(Math.random() * jokes.length)];
 }
@@ -168,7 +180,6 @@ client.on('messageCreate', async (message) => {
     const mentioned = message.mentions.has(client.user);
     const isDM = !message.guild;
 
-    // 1. Handle casual greetings
     const greetings = ["hi", "hello", "hey", "yo", "sup", "heya", "howdy"];
     const isGreeting = greetings.some(greeting => lowerContent === greeting || lowerContent.startsWith(greeting + " "));
 
@@ -184,19 +195,16 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // 2. For further processing (non-greetings), bot must be mentioned or it's a DM.
     if (!mentioned && !isDM) {
         return;
     }
 
-    // Clean the message content: remove the bot's mention
     let processedContent = message.content;
     if (mentioned && client.user) {
         const mentionRegex = new RegExp(`<@!?${client.user.id}>`, 'g');
         processedContent = processedContent.replace(mentionRegex, '').trim();
     }
 
-    // If only mention was sent (empty processedContent after cleaning)
     if (processedContent.length === 0) {
         await message.reply("Yes? How can I help you?");
         return;
@@ -229,9 +237,7 @@ client.on('messageCreate', async (message) => {
     }
 
     // 4. Handle specific PrismStrap questions/commands (PRISMSTRAP_QA)
-    // (The "help" keyword in PRISMSTRAP_QA now points to GENERAL_QA["what can you do"])
     for (const keyword in PRISMSTRAP_QA) {
-        // Avoid re-triggering help if it was already handled by GENERAL_QA
         if (keyword === "help" && (lowerProcessedContent.includes("what can you do") || lowerProcessedContent.includes("what are your commands"))) {
             continue;
         }
@@ -253,7 +259,7 @@ client.on('messageCreate', async (message) => {
         }
         await message.channel.sendTyping();
 
-        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly and helpful AI assistant for the PrismStrap project. You can engage in natural conversation. Be concise but informative. If asked about your capabilities, you can mention you can answer questions about PrismStrap (including FFlag usage), tell jokes, flip coins, and state the time, in addition to general chat.`;
+        let systemPromptContent = `You are ${BOT_USER_AGENT_NAME}, a friendly and helpful AI assistant for the PrismStrap project. You can engage in natural conversation. Be concise but informative. If asked about your capabilities, you can mention you can answer questions about PrismStrap (including FFlag usage and general operation), tell jokes, flip coins, and state the time, in addition to general chat.`;
 
         if (channelId === SUPPORT_CHANNEL_ID) {
             systemPromptContent += " You are currently in the PrismStrap support channel. Your primary goal is to assist users with their PrismStrap-related questions and issues.";
@@ -265,7 +271,7 @@ client.on('messageCreate', async (message) => {
 
         const messagesForOpenAI = [
             { role: "system", content: systemPromptContent },
-            { role: "user", content: processedContent } // Use the cleaned processedContent
+            { role: "user", content: processedContent }
         ];
 
         const completion = await openai.chat.completions.create({
@@ -307,7 +313,7 @@ client.on('messageCreate', async (message) => {
 
 client.login(DISCORD_TOKEN)
     .catch(err => {
-        console.error(`❌ Failed to login to Discord as ${BOT_USER_AGENT_NAME}:`, err.message);
+        console.error(`❌ Failed to login to Discord as ${BOT_USER_AGENT_ `NAME}:`, err.message);
         discordClientReady = false;
     });
 
