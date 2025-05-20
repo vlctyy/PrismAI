@@ -313,7 +313,7 @@ client.on('messageCreate', async (message) => {
 
 client.login(DISCORD_TOKEN)
     .catch(err => {
-        console.error(`❌ Failed to login to Discord as ${BOT_USER_AGENT_ `NAME}:`, err.message);
+        console.error(`❌ Failed to login to Discord as ${BOT_USER_AGENT_NAME}:`, err.message); // Corrected line
         discordClientReady = false;
     });
 
